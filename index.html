@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Conti della Focacceria</title>
+<title>Fratelli in Teglia · Conti</title>
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<meta name="theme-color" content="#26301b">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Focacceria">
+<meta name="apple-mobile-web-app-title" content="Fratelli in Teglia">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
@@ -66,19 +66,21 @@ nav div{display:flex;max-width:880px;width:100%}
 nav button{flex:1;background:none;border:0;color:var(--mute);font:inherit;font-size:13px;padding:10px 2px;border-radius:10px}
 nav button.on{color:var(--ink);background:var(--bg);font-weight:600}
 .ov{position:fixed;inset:0;background:var(--bg);z-index:20;display:flex;align-items:center;justify-content:center;padding:20px}
-.ov.hide{display:none}.ov form{width:100%;max-width:360px}
+.ov.brand{background:#000;border-radius:16px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.brand img{height:68px;width:auto;max-width:68%;object-fit:contain}
+.hide{display:none}.ov form{width:100%;max-width:360px}
 .hide{display:none}
 </style>
 </head>
 <body>
 <div id="login" class="ov hide"><form id="l-form">
-  <h1>Focacceria · Conti</h1><p class="sub">Accedi con la tua email</p>
+  <img src="logo.png" alt="Fratelli in Teglia" style="width:100%;height:auto;border-radius:16px;margin-bottom:14px"><p class="sub">Accedi con la tua email</p>
   <label for="l-e">Email</label><input id="l-e" type="email" autocomplete="username" required>
   <label for="l-p">Password</label><input id="l-p" type="password" autocomplete="current-password" required>
   <button class="btn" type="submit">Accedi</button>
   <p class="sub" id="l-msg" style="color:var(--out)"></p></form></div>
 <main>
-<header><h1>Focacceria · Conti</h1><span class="badge" id="role">…</span></header>
+<header class="brand"><img src="logo.png" alt="Fratelli in Teglia"><span class="badge" id="role">…</span></header>
 <p class="sub" id="status">Caricamento dati…</p>
 
 <section id="v-dash">
@@ -134,8 +136,9 @@ nav button.on{color:var(--ink);background:var(--bg);font-weight:600}
 </section>
 
 <section id="v-rep" class="hide">
-  <div class="seg"><button class="on" data-r="m">Mensile</button><button data-r="a">Annuale</button></div>
+  <div class="seg"><button data-r="w">Settimanale</button><button class="on" data-r="m">Mensile</button><button data-r="a">Annuale</button></div>
   <div class="card"><label for="r-p" id="r-l">Mese</label><input type="month" id="r-p">
+    <div class="two" style="margin-top:8px"><button class="btn alt" id="r-prev" style="margin-top:0">◀ Precedente</button><button class="btn alt" id="r-next" style="margin-top:0">Successiva ▶</button></div>
     <div id="r-t" style="margin-top:10px"></div>
     <div class="two"><button class="btn" id="r-pdf">Scarica PDF</button><button class="btn alt" id="r-xls">Scarica Excel</button></div></div>
   <div class="card"><h2>Account</h2><div class="m" id="r-u"></div><button class="btn alt" id="logout">Esci</button></div>
@@ -197,6 +200,17 @@ function render(){
 }
 function model(){
   const p=$("#r-p").value;
+  if(repMode==="w"){
+    const base=new Date((p||today())+"T12:00"),mon=new Date(base);mon.setDate(base.getDate()-((base.getDay()+6)%7));
+    const days=[...Array(7)].map((_,k)=>{const d=new Date(mon);d.setDate(mon.getDate()+k);return iso(d)});
+    const nm=["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+    const rows=days.map((s,k)=>{const i=sum(S.incassi.filter(x=>x.d===s),tot),o=sum(S.spese.filter(x=>x.d===s),x=>x.a);return [nm[k]+" "+s.slice(8)+"/"+s.slice(5,7),i,o,i-o]});
+    const ti=sum(rows,r=>r[1]),to=sum(rows,r=>r[2]);rows.push(["Totale settimana",ti,to,ti-to]);
+    const wi=S.incassi.filter(x=>days.includes(x.d));
+    rows.push(["Di cui contanti",sum(wi,x=>x.cash||0),null,null],["Di cui POS",sum(wi,x=>x.pos||0),null,null]);
+    const cs={};S.spese.filter(x=>days.includes(x.d)).forEach(x=>cs[x.cat]=(cs[x.cat]||0)+x.a);
+    Object.entries(cs).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>rows.push(["Spese: "+k,null,v,null]));
+    return {title:"Report settimanale dal "+days[0]+" al "+days[6],head:["Giorno","Incassi","Spese","Utile"],rows}}
   if(repMode==="m"){
     const inc=S.incassi.filter(x=>x.d.startsWith(p)),sp=S.spese.filter(x=>x.d.startsWith(p));
     const c=sum(inc,x=>x.cash||0),po=sum(inc,x=>x.pos||0),cs={};sp.forEach(x=>cs[x.cat]=(cs[x.cat]||0)+x.a);
@@ -206,7 +220,7 @@ function model(){
   rows.push(["Totale",sum(rows,r=>r[1]),sum(rows,r=>r[2]),sum(rows,r=>r[3])]);
   return {title:"Report annuale "+y,head:["Mese","Incassi","Spese","Utile"],rows}}
 function reportView(){const r=model();
-  $("#r-t").innerHTML=r.rows.map(x=>`<div class="item"><div class="t">${esc(x[0])}</div>${x.slice(1).map(v=>`<div class="amt" style="min-width:90px;text-align:right">${eur(v)}</div>`).join("")}</div>`).join("")}
+  $("#r-t").innerHTML=r.rows.map(x=>`<div class="item"><div class="t">${esc(x[0])}</div>${x.slice(1).map(v=>`<div class="amt" style="min-width:72px;text-align:right;font-size:14px">${v==null?"":eur(v)}</div>`).join("")}</div>`).join("")}
 async function save(name,data){
   try{if(!DL&&window.claude&&claude.use)DL=await claude.use("downloads")}catch(e){}
   if(DL){try{await DL.save({filename:name,data});return}catch(e){if(e&&e.code==="cancelled")return}}
@@ -214,9 +228,12 @@ async function save(name,data){
   catch(e){alert("Download non riuscito su questo dispositivo.")}}
 $("#r-xls").onclick=()=>{const r=model(),ws=XLSX.utils.aoa_to_sheet([r.head,...r.rows]),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Report");
   save(r.title.replace(/ /g,"_")+".xlsx",XLSX.write(wb,{type:"array",bookType:"xlsx"}))};
-$("#r-pdf").onclick=()=>{const r=model(),d=new window.jspdf.jsPDF();d.setFontSize(16);d.text("Focacceria - "+r.title,14,20);d.setFontSize(11);let y=32;
+async function logoData(){try{const b=await(await fetch("logo.png")).blob();return await new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b)})}catch(e){return null}}
+$("#r-pdf").onclick=async()=>{const r=model(),d=new window.jspdf.jsPDF(),lg=await logoData();let y=20;
+  if(lg){d.addImage(lg,"PNG",14,10,60,Math.round(60*493/900));y=10+Math.round(60*493/900)+12}
+  d.setFontSize(16);d.text(r.title,14,y);d.setFontSize(11);y+=12;
   const cx=[14,90,125,160];d.setFont(undefined,"bold");r.head.forEach((h,k)=>d.text(h,cx[k],y));d.setFont(undefined,"normal");y+=8;
-  r.rows.forEach(x=>{if(y>280){d.addPage();y=20}x.forEach((v,k)=>d.text(k?"EUR "+v.toLocaleString("it-IT",{minimumFractionDigits:2}):String(v),cx[k],y));y+=7});
+  r.rows.forEach(x=>{if(y>280){d.addPage();y=20}x.forEach((v,k)=>{if(v==null)return;d.text(k?"EUR "+v.toLocaleString("it-IT",{minimumFractionDigits:2}):String(v),cx[k],y)});y+=7});
   save(r.title.replace(/ /g,"_")+".pdf",d.output("arraybuffer"))};
 
 // scrittura
@@ -245,8 +262,15 @@ document.addEventListener("click",e=>{
 // navigazione
 $$("nav button").forEach(b=>b.onclick=()=>{$$("nav button").forEach(t=>t.classList.toggle("on",t===b));$$("main>section").forEach(s=>s.classList.toggle("hide",s.id!=="v-"+b.dataset.v));scrollTo(0,0)});
 $$("[data-f]").forEach(b=>b.onclick=()=>{$$("[data-f]").forEach(t=>t.classList.toggle("on",t===b));$("#f-fat").classList.toggle("hide",b.dataset.f!=="fat");$("#f-forn").classList.toggle("hide",b.dataset.f!=="forn")});
-$$("[data-r]").forEach(b=>b.onclick=()=>{$$("[data-r]").forEach(t=>t.classList.toggle("on",t===b));repMode=b.dataset.r;const i=$("#r-p");
-  i.type=repMode==="m"?"month":"number";i.value=repMode==="m"?curM():curM().slice(0,4);$("#r-l").textContent=repMode==="m"?"Mese":"Anno";reportView()});
+const RCFG={w:["date",()=>today(),"Un giorno qualsiasi della settimana (si mostra lunedì-domenica)"],m:["month",()=>curM(),"Mese"],a:["number",()=>curM().slice(0,4),"Anno"]};
+$$("[data-r]").forEach(b=>b.onclick=()=>{$$("[data-r]").forEach(t=>t.classList.toggle("on",t===b));repMode=b.dataset.r;const i=$("#r-p"),c=RCFG[repMode];
+  i.type=c[0];i.value=c[1]();$("#r-l").textContent=c[2];reportView()});
+function shiftR(dir){const i=$("#r-p"),v=i.value;if(!v)return;
+  if(repMode==="w"){const d=new Date(v+"T12:00");d.setDate(d.getDate()+7*dir);i.value=iso(d)}
+  else if(repMode==="m"){let [y,m]=v.split("-").map(Number);m+=dir;if(m<1){m=12;y--}if(m>12){m=1;y++}i.value=y+"-"+String(m).padStart(2,"0")}
+  else i.value=String(+v+dir);
+  reportView()}
+$("#r-prev").onclick=()=>shiftR(-1);$("#r-next").onclick=()=>shiftR(1);
 $("#r-p").onchange=reportView;$("#s-m").onchange=render;
 // avvio
 $("#s-c").innerHTML=CATS.map(c=>`<option>${c}</option>`).join("");
